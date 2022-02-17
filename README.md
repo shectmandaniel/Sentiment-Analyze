@@ -129,3 +129,63 @@ http://localhost:8080/sendKafka?text=test1
 http://localhost:8080/getKafka
 <br>
 commit - with kafka
+### all together
+controller/AppController.java
+```java
+
+    @RequestMapping(path = "/grouped", method = RequestMethod.GET)
+    public  @ResponseBody Flux<String> grouped(@RequestParam(defaultValue = "obama") String text,
+                                                     @RequestParam(defaultValue = "3") Integer timeWindowSec) throws TwitterException {
+        var flux = kafkaReceiver.receive().map(message -> message.value());
+        twitterStream.filter(text).map((x)-> kafkaSender.send(x, APP_TOPIC)).subscribe();
+
+            return flux.map(x-> new TimeAndMessage(DateTime.now(), x))
+                    .window(Duration.ofSeconds(timeWindowSec))
+                    .flatMap(window->toArrayList(window))
+                    .map(y->{
+                        if (y.size() == 0) return "size: 0 <br>";
+                        return  "time:" + y.get(0).curTime +  " size: " + y.size() + "<br>";
+                    });
+    }
+
+    @RequestMapping(path = "/sentiment", method = RequestMethod.GET)
+    public  @ResponseBody Flux<String> sentiment(@RequestParam(defaultValue = "obama") String text,
+                                               @RequestParam(defaultValue = "3") Integer timeWindowSec) throws TwitterException {
+        var flux = kafkaReceiver.receive().map(message -> message.value());
+        twitterStream.filter(text).map((x)-> kafkaSender.send(x, APP_TOPIC)).subscribe();
+
+        return flux.map(x-> new TimeAndMessage(DateTime.now(), x))
+                .window(Duration.ofSeconds(timeWindowSec))
+                .flatMap(window->toArrayList(window))
+                .map(items->{
+                    if (items.size() > 10) return "size:" + items.size() + "<br>";
+                    System.out.println("size:" + items.size());
+                    double avg = items.stream().map(x-> sentimentAnalyzer.analyze(x.message))
+                            .mapToDouble(y->y).average().orElse(0.0);
+                    if (items.size() == 0) return "EMPTY<br>";
+                    return   items.size() + " messages, sentiment = " + avg +  "<br>";
+
+                });
+    }
+    static class TimeAndMessage {
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd, HH:mm:ss, z");
+        DateTime curTime;
+        String message;
+
+        public TimeAndMessage(DateTime curTime, String message) {
+            this.curTime = curTime;
+            this.message = message;
+        }
+
+        @Override
+        public String toString() {
+            return "TimeAndMessage{" +
+                    "formatter=" + formatter +
+                    ", curTime=" + curTime +
+                    ", message='" + message + '\'' +
+                    '}';
+        }
+    }
+
+```
+commit - all together
