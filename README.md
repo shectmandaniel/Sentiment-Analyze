@@ -18,31 +18,12 @@
 apply patch stanford
 commit - with nlp
 ### twitter
-pom.xml
-```
-		<dependency>
-			<groupId>org.twitter4j</groupId>
-			<artifactId>twitter4j-core</artifactId>
-			<version>4.0.7</version>
-		</dependency>
-
-		<dependency>
-			<groupId>org.twitter4j</groupId>
-			<artifactId>twitter4j-async</artifactId>
-			<version>4.0.7</version>
-		</dependency>
-
-		<dependency>
-			<groupId>org.twitter4j</groupId>
-			<artifactId>twitter4j-stream</artifactId>
-			<version>4.0.7</version>
-		</dependency>
-```
-
-apply patch - twitter
+apply patch - news-stream
 <br>
 controller/AppController.java
 ```java
+    @Autowired
+    AppNewsStream twitterStream;
 
     @RequestMapping(path = "/startTwitter", method = RequestMethod.GET)
     public  @ResponseBody Flux<String> start(String text)  {
