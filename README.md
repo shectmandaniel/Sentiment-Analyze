@@ -1,172 +1,97 @@
-# sentiment
+# Sentiment Analysis Application
 
-### stanford sentiment analysis
-```
-		<dependency>
-			<groupId>edu.stanford.nlp</groupId>
-			<artifactId>stanford-corenlp</artifactId>
-			<version>3.8.0</version>
-		</dependency>
+## Overview
 
-		<dependency>
-			<groupId>edu.stanford.nlp</groupId>
-			<artifactId>stanford-corenlp</artifactId>
-			<version>3.8.0</version>
-			<classifier>models</classifier>
-		</dependency>
-```
-apply patch stanford
-commit - with nlp
-### twitter
-apply patch - news-stream
-<br>
-controller/AppController.java
-```java
-    @Autowired
-    AppNewsStream twitterStream;
+This project is a sentiment analysis application that leverages Twitter news streams, Kafka messaging, and NLP techniques to analyze the sentiment of messages in real-time. The application is built using Spring Boot and integrates with Stanford CoreNLP for sentiment analysis.
 
-    @RequestMapping(path = "/startTwitter", method = RequestMethod.GET)
-    public  @ResponseBody Flux<String> start(String text)  {
-        return twitterStream.filter(text)
-                .window(Duration.ofSeconds(3))
-                .flatMap(window->toArrayList(window))
-                .map(messages->{
-                    if (messages.size() == 0) return "size: 0 <br>";
-                    return "size: " + messages.size() + "<br>";
-                });
-    }
+## Features
 
-    @RequestMapping(path = "/stopTwitter", method = RequestMethod.GET)
-    public  @ResponseBody Mono<String> stop()  {
-        twitterStream.shutdown();
-        return Mono.just("shutdown");
-    }
+- **Start News Stream**: Starts a filtered news stream based on a keyword.
+- **Stop News Stream**: Stops the current news stream.
+- **Grouped Messages**: Groups messages received from Kafka within a specified time window.
+- **Sentiment Analysis**: Analyzes the sentiment of messages received from Kafka and provides an average sentiment score.
 
-    public static <T> Mono<ArrayList<T>> toArrayList(Flux<T> source) {
-        return  source.reduce(new ArrayList(), (a, b) -> { a.add(b);return a; });
-    }
-```
-commit - with twitter
+## Project Structure
 
-###kafka
-pom.xml
-```java
-		<dependency>
-			<groupId>io.projectreactor.kafka</groupId>
-			<artifactId>reactor-kafka</artifactId>
-			<version>1.3.10</version>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.kafka</groupId>
-			<artifactId>spring-kafka</artifactId>
-		</dependency>
-```
-application.properties
-```
-spring.kafka.bootstrap-servers=kafka:9092
-spring.kafka.producer.retries=0
-spring.kafka.producer.acks=1
-spring.kafka.producer.batch-size=16384
-spring.kafka.producer.properties.linger.ms=0
-spring.kafka.producer.buffer-memory = 33554432
-spring.kafka.producer.key-serializer=org.apache.kafka.common.serialization.StringSerializer
-spring.kafka.producer.value-serializer=org.springframework.kafka.support.serializer.JsonSerializer
-spring.kafka.consumer.properties.group.id=searchengine
-spring.kafka.consumer.auto-offset-reset=earliest
-spring.kafka.consumer.enable-auto-commit=true
-spring.kafka.consumer.auto-commit-interval=1000
-spring.kafka.consumer.key-deserializer=org.apache.kafka.common.serialization.StringDeserializer
-spring.kafka.consumer.value-deserializer=org.springframework.kafka.support.serializer.JsonDeserializer
-spring.kafka.consumer.properties.session.timeout.ms=120000
-spring.kafka.consumer.properties.request.timeout.ms=180000
-spring.kafka.listener.missing-topics-fatal=false
-```
-apply patch -> kafka.patch
-<br>
-controller/AppController.java
-```java
-    @Autowired
-    AppKafkaSender kafkaSender;
+- **com.handson.sentiment.controller.AppController**: Main controller handling HTTP requests and coordinating the application's functionality.
+- **com.handson.sentiment.kafka.AppKafkaSender**: Handles sending messages to Kafka topics.
+- **com.handson.sentiment.nlp.SentimentAnalyzer**: Provides sentiment analysis functionality using Stanford CoreNLP.
+- **com.handson.sentiment.twitter.AppNewsStream**: Handles streaming of news from Twitter.
 
-    @Autowired
-    KafkaReceiver<String,String> kafkaReceiver;
+## Endpoints
 
+### 1. Start News Stream
+- **URL**: `/startNews`
+- **Method**: GET
+- **Description**: Starts the news stream filtered by the provided text.
+- **Parameters**: 
+  - `text` (String): The keyword to filter news.
 
-    @RequestMapping(path = "/sendKafka", method = RequestMethod.GET)
-    public  @ResponseBody Mono<String> sendText(String text)  {
-        kafkaSender.send(text, APP_TOPIC);
-        return Mono.just("OK");
-    }
+### 2. Stop News Stream
+- **URL**: `/stopNews`
+- **Method**: GET
+- **Description**: Stops the currently running news stream.
 
-    @RequestMapping(path = "/getKafka", method = RequestMethod.GET)
-    public  @ResponseBody  Flux<String> getKafka()  {
-        return kafkaReceiver.receive().map(x-> x.value() + "<br>");
-    }
-```
-try:
-<br>
-http://localhost:8080/sendKafka?text=test1
-<br>
-http://localhost:8080/getKafka
-<br>
-commit - with kafka
-### all together
-controller/AppController.java
-```java
+### 3. Grouped Messages
+- **URL**: `/grouped`
+- **Method**: GET
+- **Description**: Retrieves and groups messages from Kafka within a specified time window.
+- **Parameters**: 
+  - `text` (String, default: "israel"): The keyword to filter news.
+  - `timeWindowSec` (Integer, default: 3): The time window in seconds to group messages.
 
-    @RequestMapping(path = "/grouped", method = RequestMethod.GET)
-    public  @ResponseBody Flux<String> grouped(@RequestParam(defaultValue = "obama") String text,
-                                                     @RequestParam(defaultValue = "3") Integer timeWindowSec) throws TwitterException {
-        var flux = kafkaReceiver.receive().map(message -> message.value());
-        twitterStream.filter(text).map((x)-> kafkaSender.send(x, APP_TOPIC)).subscribe();
+### 4. Sentiment Analysis
+- **URL**: `/sentiment`
+- **Method**: GET
+- **Description**: Analyzes the sentiment of messages within a specified time window.
+- **Parameters**: 
+  - `text` (String, default: "obama"): The keyword to filter news.
+  - `timeWindowSec` (Integer, default: 3): The time window in seconds to analyze messages.
 
-            return flux.map(x-> new TimeAndMessage(DateTime.now(), x))
-                    .window(Duration.ofSeconds(timeWindowSec))
-                    .flatMap(window->toArrayList(window))
-                    .map(y->{
-                        if (y.size() == 0) return "size: 0 <br>";
-                        return  "time:" + y.get(0).curTime +  " size: " + y.size() + "<br>";
-                    });
-    }
+## Setup
 
-    @RequestMapping(path = "/sentiment", method = RequestMethod.GET)
-    public  @ResponseBody Flux<String> sentiment(@RequestParam(defaultValue = "obama") String text,
-                                               @RequestParam(defaultValue = "3") Integer timeWindowSec) throws TwitterException {
-        var flux = kafkaReceiver.receive().map(message -> message.value());
-        twitterStream.filter(text).map((x)-> kafkaSender.send(x, APP_TOPIC)).subscribe();
+### Prerequisites
 
-        return flux.map(x-> new TimeAndMessage(DateTime.now(), x))
-                .window(Duration.ofSeconds(timeWindowSec))
-                .flatMap(window->toArrayList(window))
-                .map(items->{
-                    if (items.size() > 10) return "size:" + items.size() + "<br>";
-                    System.out.println("size:" + items.size());
-                    double avg = items.stream().map(x-> sentimentAnalyzer.analyze(x.message))
-                            .mapToDouble(y->y).average().orElse(0.0);
-                    if (items.size() == 0) return "EMPTY<br>";
-                    return   items.size() + " messages, sentiment = " + avg +  "<br>";
+- Java 11 or higher
+- Maven
+- Kafka
 
-                });
-    }
-    static class TimeAndMessage {
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd, HH:mm:ss, z");
-        DateTime curTime;
-        String message;
+### Installation
 
-        public TimeAndMessage(DateTime curTime, String message) {
-            this.curTime = curTime;
-            this.message = message;
-        }
+1. Clone the repository:
+    ```sh
+    git clone <repository-url>
+    cd <repository-directory>
+    ```
 
-        @Override
-        public String toString() {
-            return "TimeAndMessage{" +
-                    "formatter=" + formatter +
-                    ", curTime=" + curTime +
-                    ", message='" + message + '\'' +
-                    '}';
-        }
-    }
+2. Update the `application.properties` file with your Kafka credentials.
 
-```
-commit - all together
+3. Build the project using Maven:
+    ```sh
+    mvn clean install
+    ```
+
+4. Run the application:
+    ```sh
+    mvn spring-boot:run
+    ```
+
+## Usage
+
+Once the application is running, you can interact with it using the provided endpoints. Use a tool like Postman or `curl` to make HTTP requests to the application's endpoints.
+
+## Sentiment Analysis
+
+The sentiment analysis is performed using the Stanford CoreNLP library. The sentiments are categorized and mapped to numerical values as follows:
+
+- Very negative: 1
+- Negative: 2
+- Neutral: 3
+- Positive: 4
+- Very positive: 5
+
+The average sentiment score is calculated based on the messages within the specified time window.
+
+## Contributing
+
+Contributions are welcome! Please open an issue or submit a pull request for any changes or improvements.
