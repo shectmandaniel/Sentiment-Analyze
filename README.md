@@ -66,14 +66,18 @@ This project is a sentiment analysis application that leverages news streams, Ka
 
 2. Update the `application.properties` file with your Kafka credentials.
 
-3. Run from your console docker-compose up -d (Should start two containers, one of zoo-keper and another of Kafka)
+3. Run from your console
+   ```sh
+   docker-compose up -d
+   ```
+   (Should start two containers, one of zoo-keper and another of Kafka)
 
-4. Build the project using Maven:
+5. Build the project using Maven:
     ```sh
     mvn clean install
     ```
 
-5. Run the application:
+6. Run the application:
     ```sh
     mvn spring-boot:run
     ```
