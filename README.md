@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project is a sentiment analysis application that leverages Twitter news streams, Kafka messaging, and NLP techniques to analyze the sentiment of messages in real-time. The application is built using Spring Boot and integrates with Stanford CoreNLP for sentiment analysis.
+This project is a sentiment analysis application that leverages news streams, Kafka messaging, and NLP techniques to analyze the sentiment of messages in real-time. The application is built using Spring Boot and integrates with Stanford CoreNLP for sentiment analysis.
 
 ## Features
 
@@ -16,7 +16,7 @@ This project is a sentiment analysis application that leverages Twitter news str
 - **com.handson.sentiment.controller.AppController**: Main controller handling HTTP requests and coordinating the application's functionality.
 - **com.handson.sentiment.kafka.AppKafkaSender**: Handles sending messages to Kafka topics.
 - **com.handson.sentiment.nlp.SentimentAnalyzer**: Provides sentiment analysis functionality using Stanford CoreNLP.
-- **com.handson.sentiment.twitter.AppNewsStream**: Handles streaming of news from Twitter.
+- **com.handson.sentiment.twitter.AppNewsStream**: Handles streaming of news.
 
 ## Endpoints
 
@@ -66,12 +66,14 @@ This project is a sentiment analysis application that leverages Twitter news str
 
 2. Update the `application.properties` file with your Kafka credentials.
 
-3. Build the project using Maven:
+3. Run from your console docker-compose up -d (Should start two containers, one of zoo-keper and another of Kafka)
+
+4. Build the project using Maven:
     ```sh
     mvn clean install
     ```
 
-4. Run the application:
+5. Run the application:
     ```sh
     mvn spring-boot:run
     ```
